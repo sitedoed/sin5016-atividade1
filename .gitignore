@@ -32,3 +32,4 @@ Execucao/**/*.pkl
 *.log
 *.tmp
 *.temp
+.python-version

@@ -1,0 +1,19 @@
+# DEPENDÊNCIAS CORE
+numpy==1.26.4                # Compatível com pandas 2.3.3
+pandas==2.3.3                # JÁ INSTALADO - manter esta versão
+scikit-learn==1.5.0          # Versão atual compatível
+scikit-image==0.23.2         # Para HOG/LBP
+imbalanced-learn==0.12.2     # Balanceamento ≥30%
+joblib==1.4.2                # Para salvar modelos
+Pillow==10.3.0               # Manipulação de imagens
+opencv-python-headless==4.10.0.84    # Pré-processamento
+
+# DEPENDÊNCIAS UTILITY
+matplotlib==3.9.0            # Gráficos
+seaborn==0.13.2              # Visualização
+tqdm==4.66.4                 # Progress bars
+
+# DEV/TESTING (opcional)
+jupyter==1.1.1
+ipython==8.25.0
+notebook==7.1.3
