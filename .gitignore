@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+sin5016/
+
+# Dataset (NÃO versionar as imagens!)
+Images/Original_images/
+Images/Optimized_images/
+*.jpg
+*.png
+*.jpeg
+
+# Execução
+Execucao/**/*.dat
+Execucao/**/*.txt
+Execucao/**/*.pkl
+
+# VSCode
+.vscode/
+.idea/
+
+# Outros
+.DS_Store
+*.log
+*.tmp
+*.temp
