@@ -1,0 +1,70 @@
+============================================================
+METADADOS DA SELECAO COM LIMITE
+============================================================
+
+Arquivo de saida: data/processed/selected_ids_limited.txt
+Data: 2025-12-18 20:09:01
+
+CRITERIOS:
+  - Minimo imagens por ID: 30
+  - Maximo percentual de imagens: 25.0%
+  - Limite absoluto de imagens: 50650
+
+RESULTADOS:
+  - IDs selecionados: 1687
+  - Imagens selecionadas: 50648
+  - Percentual do dataset: 25.00%
+  - Media imagens/ID: 30.02
+
+DISTRIBUICAO:
+  1. ID   2820:  35 imagens
+  2. ID   3782:  35 imagens
+  3. ID   3227:  35 imagens
+  4. ID   3745:  34 imagens
+  5. ID   3699:  34 imagens
+  6. ID   8968:  32 imagens
+  7. ID   9152:  32 imagens
+  8. ID   9256:  32 imagens
+  9. ID   4262:  31 imagens
+ 10. ID   4887:  31 imagens
+ 11. ID   6568:  31 imagens
+ 12. ID   1757:  31 imagens
+ 13. ID   2114:  31 imagens
+ 14. ID   9840:  31 imagens
+ 15. ID   4126:  31 imagens
+ 16. ID   4740:  31 imagens
+ 17. ID   4978:  31 imagens
+ 18. ID   2880:  30 imagens
+ 19. ID   2937:  30 imagens
+ 20. ID   8692:  30 imagens
+ 21. ID   5805:  30 imagens
+ 22. ID   4153:  30 imagens
+ 23. ID   9040:  30 imagens
+ 24. ID   6369:  30 imagens
+ 25. ID   3332:  30 imagens
+ 26. ID   7081:  30 imagens
+ 27. ID   1854:  30 imagens
+ 28. ID   4905:  30 imagens
+ 29. ID   2464:  30 imagens
+ 30. ID   6642:  30 imagens
+ 31. ID   9290:  30 imagens
+ 32. ID   3670:  30 imagens
+ 33. ID   1603:  30 imagens
+ 34. ID   5512:  30 imagens
+ 35. ID   3272:  30 imagens
+ 36. ID   4407:  30 imagens
+ 37. ID   5239:  30 imagens
+ 38. ID   2079:  30 imagens
+ 39. ID   4125:  30 imagens
+ 40. ID   6318:  30 imagens
+ 41. ID   9177:  30 imagens
+ 42. ID   4310:  30 imagens
+ 43. ID   1446:  30 imagens
+ 44. ID   3896:  30 imagens
+ 45. ID   8443:  30 imagens
+ 46. ID    545:  30 imagens
+ 47. ID  10144:  30 imagens
+ 48. ID   2879:  30 imagens
+ 49. ID   6204:  30 imagens
+ 50. ID   3316:  30 imagens
+... e mais 1637 IDs
