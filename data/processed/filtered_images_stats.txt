@@ -1,0 +1,39 @@
+============================================================
+ESTATISTICAS DO FILTRO DE IMAGENS
+============================================================
+
+Data/hora: 2025-12-18 20:31:37
+Arquivo de IDs: data/processed/selected_ids_limited.txt
+Arquivo original: data/raw/identity_CelebA.txt
+Arquivo de saida: data/processed/filtered_images.txt
+
+RESULTADOS:
+  - IDs selecionados: 1687
+  - Linhas processadas: 202,599
+  - Imagens filtradas: 50,648
+  - Imagens descartadas: 151,951
+  - Taxa de retencao: 25.00%
+  - Tempo de execucao: 0.17 segundos
+  - Velocidade: 1175994 linhas/segundo
+
+PRIMEIRAS 20 IMAGENS FILTRADAS:
+    1. 000006.jpg 4153
+    2. 000007.jpg 9040
+    3. 000008.jpg 6369
+    4. 000009.jpg 3332
+    5. 000014.jpg 7081
+    6. 000015.jpg 1854
+    7. 000016.jpg 4905
+    8. 000018.jpg 2464
+    9. 000022.jpg 6642
+   10. 000024.jpg 9290
+   11. 000028.jpg 3670
+   12. 000034.jpg 1603
+   13. 000035.jpg 5512
+   14. 000036.jpg 3272
+   15. 000038.jpg 4407
+   16. 000043.jpg 5239
+   17. 000044.jpg 2079
+   18. 000045.jpg 4125
+   19. 000046.jpg 6318
+   20. 000047.jpg 9177
