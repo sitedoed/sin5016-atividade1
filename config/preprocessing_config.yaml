@@ -1,0 +1,14 @@
+preprocessing:
+  input_directory: "../Images/Selected_images"
+  output_directory: "../Images/Optimized_images"
+  target_size: 64
+  image_extensions: [".jpg", ".jpeg", ".png", ".bmp", ".tiff"]
+  
+  # Parâmetros de pré-processamento
+  grayscale: true
+  histogram_equalization: true
+  interpolation_method: "INTER_AREA"  # INTER_AREA, INTER_LINEAR, INTER_CUBIC
+  
+  # Verificação
+  verification_sample_size: 10
+  save_error_log: true
