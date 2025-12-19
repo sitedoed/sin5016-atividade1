@@ -12,6 +12,7 @@ venv.bak/
 sin5016/
 
 # Dataset (NÃO versionar as imagens!)
+Images/
 Images/Original_images/
 Images/Optimized_images/
 *.jpg
