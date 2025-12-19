@@ -1,11 +1,10 @@
-# train_classifiers.py
+# train_classifiers.py - CÓDIGO OTIMIZADO
 import os
 import numpy as np
 import joblib
 import json
-import pickle
 from sklearn.neural_network import MLPClassifier
-from sklearn.svm import SVC
+from sklearn.svm import LinearSVC, SVC
 from sklearn.linear_model import SGDClassifier
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split, KFold
@@ -17,20 +16,31 @@ import warnings
 warnings.filterwarnings('ignore')
 
 class FaceRecognitionSystem:
-    def __init__(self, features_dir='../data/features'):
-        self.features_dir = features_dir
+    def __init__(self, features_dir=None):
+        import os
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+        if features_dir is None:
+            self.features_dir = os.path.join(base_dir, 'data', 'features')
+        else:
+            self.features_dir = os.path.join(base_dir, features_dir.lstrip('./'))
+        
+        self.results_dir = os.path.join(base_dir, 'results')
+        os.makedirs(self.results_dir, exist_ok=True)
         
         print("="*60)
         print("SISTEMA DE RECONHECIMENTO FACIAL")
         print("="*60)
+        print(f"Diretorio de features: {self.features_dir}")
+        print("="*60)
         
         print("\nCarregando dados...")
         self.load_data()
-        
-        self.results_dir = '../results'
-        os.makedirs(self.results_dir, exist_ok=True)
     
     def load_data(self):
+        if not os.path.exists(self.features_dir):
+            raise FileNotFoundError(f"Diretorio {self.features_dir} nao existe")
+        
         self.X_hog = np.load(os.path.join(self.features_dir, 'hog', 'features.npy'))
         self.X_lbp = np.load(os.path.join(self.features_dir, 'lbp', 'features.npy'))
         self.X_combined = np.load(os.path.join(self.features_dir, 'combined', 'features.npy'))
@@ -40,16 +50,20 @@ class FaceRecognitionSystem:
         self.pairs = np.load(os.path.join(self.features_dir, 'verification_pairs', 'pairs.npy'))
         self.y_verif = np.load(os.path.join(self.features_dir, 'verification_pairs', 'pair_labels.npy'))
         
-        with open(os.path.join(self.features_dir, 'metadata', 'label_to_person.json'), 'r') as f:
-            self.label_to_person = json.load(f)
+        mapping_path = os.path.join(self.features_dir, 'metadata', 'label_to_person.json')
+        if os.path.exists(mapping_path):
+            with open(mapping_path, 'r') as f:
+                self.label_to_person = json.load(f)
+        else:
+            self.label_to_person = {}
         
         print(f"Dados carregados:")
-        print(f"  Identificacao: {len(self.y_ids)} imagens, {len(np.unique(self.y_ids))} pessoas")
+        print(f"  Identificacao: {len(self.y_ids)} imagens, {len(np.unique(self.y_ids))} classes")
         print(f"  Verificacao: {len(self.y_verif)} pares ({sum(self.y_verif)} positivos)")
-        print(f"  Dimensoes - HOG: {self.X_hog.shape}, LBP: {self.X_lbp.shape}")
     
-    def prepare_identification_data(self, feature_type='hog', test_size=0.3, val_size=0.1, 
-                                  random_state=42, pca_components=100):
+    def prepare_identification_data(self, feature_type='hog', test_size=0.2, val_size=0.1, 
+                                  random_state=42, pca_components=50, max_samples=10000):
+        """Prepara dados para identificacao com limite de amostras"""
         if feature_type == 'hog':
             X = self.X_hog
         elif feature_type == 'lbp':
@@ -58,6 +72,12 @@ class FaceRecognitionSystem:
             X = self.X_combined
         
         y = self.y_ids
+        
+        # Limitar numero de amostras para acelerar
+        if len(X) > max_samples:
+            indices = np.random.choice(len(X), max_samples, replace=False)
+            X = X[indices]
+            y = y[indices]
         
         X_temp, X_test, y_temp, y_test = train_test_split(
             X, y, test_size=test_size, random_state=random_state, stratify=y
@@ -69,28 +89,24 @@ class FaceRecognitionSystem:
         )
         
         if pca_components and X_train.shape[1] > pca_components:
-            print(f"  Aplicando PCA: {X_train.shape[1]} -> {pca_components} componentes")
+            print(f"  PCA: {X_train.shape[1]} -> {pca_components} componentes")
             pca = PCA(n_components=pca_components, random_state=random_state)
             X_train = pca.fit_transform(X_train)
             X_val = pca.transform(X_val)
             X_test = pca.transform(X_test)
         
-        print(f"\nDados para IDENTIFICACAO ({feature_type}):")
+        print(f"\nDados IDENTIFICACAO ({feature_type}):")
         print(f"  Treino: {X_train.shape[0]} amostras")
         print(f"  Validacao: {X_val.shape[0]} amostras")
         print(f"  Teste: {X_test.shape[0]} amostras")
         print(f"  Classes: {len(np.unique(y_train))}")
         print(f"  Dimensoes: {X_train.shape[1]}")
         
-        return {
-            'X_train': X_train, 'y_train': y_train,
-            'X_val': X_val, 'y_val': y_val,
-            'X_test': X_test, 'y_test': y_test,
-            'feature_type': feature_type
-        }
+        return X_train, X_val, X_test, y_train, y_val, y_test
     
-    def prepare_verification_data(self, feature_type='hog', test_size=0.3, random_state=42, 
-                                 max_samples=2000, pca_components=100):
+    def prepare_verification_data(self, feature_type='hog', test_size=0.2, 
+                                 random_state=42, max_samples=5000, pca_components=100):
+        """Prepara dados para verificacao"""
         if feature_type == 'hog':
             features = self.X_hog
         elif feature_type == 'lbp':
@@ -99,7 +115,7 @@ class FaceRecognitionSystem:
             features = self.X_combined
         
         import random
-        if len(self.pairs) > max_samples:
+        if max_samples and len(self.pairs) > max_samples:
             indices = random.sample(range(len(self.pairs)), max_samples)
             pairs_sample = [self.pairs[i] for i in indices]
             y_sample = [self.y_verif[i] for i in indices]
@@ -120,30 +136,25 @@ class FaceRecognitionSystem:
         )
         
         if pca_components and X_train.shape[1] > pca_components:
-            print(f"  Aplicando PCA: {X_train.shape[1]} -> {pca_components} componentes")
+            print(f"  PCA: {X_train.shape[1]} -> {pca_components} componentes")
             pca = PCA(n_components=pca_components, random_state=random_state)
             X_train = pca.fit_transform(X_train)
             X_test = pca.transform(X_test)
         
-        print(f"\nDados para VERIFICACAO ({feature_type}):")
+        print(f"\nDados VERIFICACAO ({feature_type}):")
         print(f"  Treino: {X_train.shape[0]} pares")
         print(f"  Teste: {X_test.shape[0]} pares")
-        print(f"  Positivos (treino): {sum(y_train)}")
-        print(f"  Negativos (treino): {len(y_train) - sum(y_train)}")
-        print(f"  Dimensao por par: {X_train.shape[1]}")
+        print(f"  Positivos: {sum(y_train)}/{sum(y_test)}")
+        print(f"  Dimensao: {X_train.shape[1]}")
         
-        return {
-            'X_train': X_train, 'y_train': y_train,
-            'X_test': X_test, 'y_test': y_test,
-            'feature_type': feature_type
-        }
+        return X_train, X_test, y_train, y_test
     
     def train_mlp_with_epochs(self, X_train, y_train, X_val, y_val, task_type='identification',
-                             hidden_layers=(100,), max_epochs=500, learning_rate=0.001,
-                             patience=20, min_delta=0.001, batch_size=32):
+                             hidden_layers=(100,), max_epochs=200, learning_rate=0.001,
+                             patience=20, min_delta=0.001):
         print(f"\nTreinando MLP para {task_type}...")
         print(f"Arquitetura: {hidden_layers}")
-        print(f"Max epocas: {max_epochs}, Patience: {patience}, Batch size: {batch_size}")
+        print(f"Max epocas: {max_epochs}, Patience: {patience}")
         
         model = MLPClassifier(
             hidden_layer_sizes=hidden_layers,
@@ -167,7 +178,6 @@ class FaceRecognitionSystem:
         best_model_params = None
         patience_counter = 0
         
-        print("\nIniciando treinamento...")
         for epoch in range(max_epochs):
             model.fit(X_train, y_train)
             
@@ -177,7 +187,6 @@ class FaceRecognitionSystem:
             
             val_pred = model.predict(X_val)
             val_acc = accuracy_score(y_val, val_pred)
-            
             val_loss = 1.0 - val_acc
             
             history['epoch'].append(epoch + 1)
@@ -196,18 +205,16 @@ class FaceRecognitionSystem:
                 }
                 history['best_epoch'] = epoch + 1
                 patience_counter = 0
-                if epoch % 5 == 0:
-                    print(f"  Epoca {epoch+1:3d} - Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | "
-                          f"Acc: {train_acc:.4f} | Val Acc: {val_acc:.4f} *")
+                if epoch % 10 == 0:
+                    print(f"  Epoca {epoch+1:3d} - Loss: {train_loss:.4f} | Val Acc: {val_acc:.4f} *")
             else:
                 patience_counter += 1
-                if epoch % 10 == 0:
-                    print(f"  Epoca {epoch+1:3d} - Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | "
-                          f"Acc: {train_acc:.4f} | Val Acc: {val_acc:.4f}")
+                if epoch % 20 == 0:
+                    print(f"  Epoca {epoch+1:3d} - Loss: {train_loss:.4f} | Val Acc: {val_acc:.4f}")
             
             if patience_counter >= patience:
-                print(f"\nEarly stopping na epoca {epoch+1}")
-                print(f"Melhor epoca: {history['best_epoch']} com val_loss: {best_val_loss:.4f}")
+                print(f"\nEarly stopping epoca {epoch+1}")
+                print(f"Melhor epoca: {history['best_epoch']} (val_acc: {history['val_acc'][history['best_epoch']-1]:.4f})")
                 break
         
         if best_model_params is not None:
@@ -216,68 +223,58 @@ class FaceRecognitionSystem:
             model.n_iter_ = best_model_params['n_iter_']
             model.loss_ = best_model_params['loss_']
         
-        print(f"\nTreinamento finalizado:")
-        print(f"  Total de epocas: {len(history['epoch'])}")
+        print(f"Treinamento finalizado:")
+        print(f"  Total epocas: {len(history['epoch'])}")
         print(f"  Melhor epoca: {history['best_epoch']}")
-        print(f"  Melhor val_loss: {best_val_loss:.4f}")
         print(f"  Melhor val_acc: {history['val_acc'][history['best_epoch']-1]:.4f}")
         
         return model, history
     
     def train_svm(self, X_train, y_train, X_val, y_val, task_type='identification',
-                  C=1.0, kernel='linear', gamma='scale', max_iter=1000):
+                  C=1.0, kernel='linear', max_iter=1000):
         print(f"\nTreinando SVM para {task_type}...")
         
-        if X_train.shape[0] > 5000 or X_train.shape[1] > 1000:
-            print(f"  Dados grandes ({X_train.shape[0]} amostras, {X_train.shape[1]} features)")
-            print(f"  Usando kernel linear e max_iter reduzido")
-            kernel = 'linear'
-            max_iter = 500
-        
-        try:
+        # Para identificacao com muitos dados, usar LinearSVC (mais rapido)
+        if task_type == 'identification':
+            print("  Usando LinearSVC (otimizado para multi-classe)...")
+            model = LinearSVC(
+                C=C,
+                random_state=42,
+                max_iter=max_iter,
+                verbose=1,
+                dual=False  # Mais rapido quando n_samples > n_features
+            )
+        else:
+            # Para verificacao (binario), usar SVC tradicional
+            if X_train.shape[0] > 5000:
+                kernel = 'linear'
+                max_iter = 500
+            
             model = SVC(
                 C=C,
                 kernel=kernel,
-                gamma=gamma,
                 probability=True,
                 random_state=42,
                 max_iter=max_iter,
                 verbose=False
             )
-            
-            if task_type == 'identification':
-                model.decision_function_shape = 'ovr'
-            
-            print(f"  Iniciando treinamento SVM...")
-            model.fit(X_train, y_train)
-            
-        except Exception as e:
-            print(f"  Erro no SVC: {e}")
-            print("  Usando SGDClassifier (SVM com gradiente descendente)...")
-            
-            model = SGDClassifier(
-                loss='hinge',
-                alpha=1/(C * X_train.shape[0]),
-                max_iter=1000,
-                random_state=42,
-                verbose=0
-            )
-            model.fit(X_train, y_train)
+        
+        print(f"  Iniciando treinamento...")
+        model.fit(X_train, y_train)
         
         train_acc = accuracy_score(y_train, model.predict(X_train))
         val_acc = accuracy_score(y_val, model.predict(X_val))
         
         print(f"SVM Treinado:")
-        print(f"  Kernel: {kernel}, C: {C}")
-        print(f"  Acuraria treinamento: {train_acc:.4f}")
+        print(f"  Tipo: {model.__class__.__name__}")
         print(f"  Acuraria validacao: {val_acc:.4f}")
         
         return model
     
     def cross_validation_mlp(self, X, y, feature_type='hog', task_type='identification', 
-                            n_folds=3, hidden_layers=(50,), max_epochs=50):
+                            n_folds=5, hidden_layers=(100,), max_epochs=200):
         print(f"\n{task_type.upper()} - {feature_type.upper()} - MLP")
-        print(f"Executando {n_folds}-fold cross validation...")
+        print(f"5-fold cross validation...")
         
         kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
         
@@ -286,7 +283,7 @@ class FaceRecognitionSystem:
         models = []
         
         for fold, (train_idx, val_idx) in enumerate(kf.split(X), 1):
-            print(f"\nFold {fold}/{n_folds}:")
+            print(f"\nFold {fold}/5:")
             
             X_train, X_val = X[train_idx], X[val_idx]
             y_train, y_val = y[train_idx], y[val_idx]
@@ -301,8 +298,7 @@ class FaceRecognitionSystem:
             histories.append(history)
             models.append(model)
             
-            print(f"  Fold {fold} - Melhor val_acc: {history['val_acc'][history['best_epoch']-1]:.4f}")
-            print(f"  Fold {fold} - Acuraria final: {score:.4f}")
+            print(f"  Fold {fold} - Val Acc: {score:.4f}")
         
         results = {
             'mean_score': np.mean(scores),
@@ -316,15 +312,14 @@ class FaceRecognitionSystem:
             'n_folds': n_folds
         }
         
-        print(f"\nResultados {n_folds}-fold CV:")
+        print(f"\nResultados 5-fold CV:")
         print(f"  Media: {results['mean_score']:.4f} (+/- {results['std_score']:.4f})")
-        print(f"  Scores individuais: {[f'{s:.4f}' for s in scores]}")
         
         return results
     
-    def cross_validation_svm(self, X, y, feature_type='hog', task_type='identification', n_folds=3):
+    def cross_validation_svm(self, X, y, feature_type='hog', task_type='identification', n_folds=5):
         print(f"\n{task_type.upper()} - {feature_type.upper()} - SVM")
-        print(f"Executando {n_folds}-fold cross validation...")
+        print(f"5-fold cross validation...")
         
         kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
         
@@ -332,7 +327,7 @@ class FaceRecognitionSystem:
         models = []
         
         for fold, (train_idx, val_idx) in enumerate(kf.split(X), 1):
-            print(f"\nFold {fold}/{n_folds}:")
+            print(f"\nFold {fold}/5:")
             
             X_train, X_val = X[train_idx], X[val_idx]
             y_train, y_val = y[train_idx], y[val_idx]
@@ -343,7 +338,7 @@ class FaceRecognitionSystem:
             scores.append(score)
             models.append(model)
             
-            print(f"  Fold {fold} - Acuraria: {score:.4f}")
+            print(f"  Fold {fold} - Val Acc: {score:.4f}")
         
         results = {
             'mean_score': np.mean(scores),
@@ -356,9 +351,8 @@ class FaceRecognitionSystem:
             'n_folds': n_folds
         }
         
-        print(f"\nResultados {n_folds}-fold CV:")
+        print(f"\nResultados 5-fold CV:")
         print(f"  Media: {results['mean_score']:.4f} (+/- {results['std_score']:.4f})")
-        print(f"  Scores individuais: {[f'{s:.4f}' for s in scores]}")
         
         return results
     
@@ -366,8 +360,6 @@ class FaceRecognitionSystem:
         print(f"\nAvaliacao final - {task_type} - {feature_type} - {model_type}:")
         
         y_pred = model.predict(X_test)
-        y_prob = model.predict_proba(X_test) if hasattr(model, 'predict_proba') else None
-        
         acc = accuracy_score(y_test, y_pred)
         
         if task_type == 'identification':
@@ -375,7 +367,7 @@ class FaceRecognitionSystem:
             cm = confusion_matrix(y_test, y_pred)
             
             print(f"Acuraria: {acc:.4f}")
-            print(f"Acuraria media por classe: {report['macro avg']['precision']:.4f}")
+            print(f"Precisao media: {report['macro avg']['precision']:.4f}")
             print(f"Revocacao media: {report['macro avg']['recall']:.4f}")
             
             self.plot_confusion_matrix(cm, feature_type, task_type, model_type)
@@ -384,7 +376,9 @@ class FaceRecognitionSystem:
             report = classification_report(y_test, y_pred, output_dict=True)
             cm = confusion_matrix(y_test, y_pred)
             
-            if y_prob is not None:
+            # Para LinearSVC nao tem predict_proba
+            if hasattr(model, 'predict_proba'):
+                y_prob = model.predict_proba(X_test)
                 auc = roc_auc_score(y_test, y_prob[:, 1])
                 print(f"AUC: {auc:.4f}")
             
@@ -400,8 +394,7 @@ class FaceRecognitionSystem:
             'confusion_matrix': cm.tolist(),
             'feature_type': feature_type,
             'task_type': task_type,
-            'model_type': model_type,
-            'timestamp': datetime.now().isoformat()
+            'model_type': model_type
         }
         
         if history and model_type == 'mlp':
@@ -423,12 +416,12 @@ class FaceRecognitionSystem:
         
         if task_type == 'identification':
             sns.heatmap(cm[:20, :20], annot=True, fmt='d', cmap='Blues')
-            plt.title(f'Matriz de Confusao (Primeiras 20 classes)\n{feature_type} - {model_type}')
+            plt.title(f'Matriz de Confusao (20 classes)\n{task_type} - {feature_type} - {model_type}')
         else:
             sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
                        xticklabels=['Diferente', 'Mesma'],
                        yticklabels=['Diferente', 'Mesma'])
-            plt.title(f'Matriz de Confusao\n{feature_type} - {model_type}')
+            plt.title(f'Matriz de Confusao\n{task_type} - {feature_type} - {model_type}')
         
         plt.ylabel('Verdadeiro')
         plt.xlabel('Predito')
@@ -451,7 +444,7 @@ class FaceRecognitionSystem:
         axes[0, 0].axvline(x=history['best_epoch'], color='g', linestyle='--', alpha=0.5)
         axes[0, 0].set_xlabel('Epoca')
         axes[0, 0].set_ylabel('Loss')
-        axes[0, 0].set_title('Loss durante o treinamento')
+        axes[0, 0].set_title('Loss durante treinamento')
         axes[0, 0].legend()
         axes[0, 0].grid(True, alpha=0.3)
         
@@ -460,7 +453,7 @@ class FaceRecognitionSystem:
         axes[0, 1].axvline(x=history['best_epoch'], color='g', linestyle='--', alpha=0.5)
         axes[0, 1].set_xlabel('Epoca')
         axes[0, 1].set_ylabel('Acuraria')
-        axes[0, 1].set_title('Acuraria durante o treinamento')
+        axes[0, 1].set_title('Acuraria durante treinamento')
         axes[0, 1].legend()
         axes[0, 1].grid(True, alpha=0.3)
         
@@ -469,16 +462,14 @@ class FaceRecognitionSystem:
         axes[1, 0].axvline(x=history['best_epoch'], color='g', linestyle='--', alpha=0.5)
         axes[1, 0].set_xlabel('Epoca')
         axes[1, 0].set_ylabel('Loss (log)')
-        axes[1, 0].set_title('Loss (escala logaritmica)')
         axes[1, 0].grid(True, alpha=0.3)
         
         axes[1, 1].plot(history['train_acc'], history['val_acc'], 'o-', alpha=0.5)
         axes[1, 1].set_xlabel('Acuraria Treino')
         axes[1, 1].set_ylabel('Acuraria Validacao')
-        axes[1, 1].set_title('Treino vs Validacao')
         axes[1, 1].grid(True, alpha=0.3)
         
-        plt.suptitle(f'Historico de Treinamento - {task_type} - {feature_type}', fontsize=14)
+        plt.suptitle(f'Historico - {task_type} - {feature_type}', fontsize=14)
         plt.tight_layout()
         
         plot_dir = os.path.join(self.results_dir, 'plots')
@@ -519,80 +510,85 @@ class FaceRecognitionSystem:
                 with open(history_path, 'w') as f:
                     json.dump(history, f, indent=2)
         else:
-            if hasattr(model, 'kernel'):
-                config = {
-                    'C': model.C,
-                    'kernel': model.kernel,
-                    'gamma': model.gamma,
-                    'decision_function_shape': getattr(model, 'decision_function_shape', 'ovr')
-                }
-            else:
-                config = {
-                    'model_type': 'SGDClassifier',
-                    'loss': model.loss,
-                    'alpha': model.alpha
-                }
+            config = {
+                'model_type': model.__class__.__name__,
+                'C': getattr(model, 'C', 'N/A'),
+                'kernel': getattr(model, 'kernel', 'linear'),
+                'max_iter': getattr(model, 'max_iter', 'N/A')
+            }
         
         config_path = os.path.join(log_dir, f'{basename}_config.json')
         with open(config_path, 'w') as f:
             json.dump(config, f, indent=2)
         
-        print(f"\nModelo e resultados salvos:")
+        print(f"Modelo e resultados salvos:")
         print(f"  Modelo: {model_path}")
-        print(f"  Resultados: {results_path}")
-        print(f"  Configuracao: {config_path}")
         
         return basename
     
-    def run_experiment_simple(self):
+    def run_focused_experiment(self):
+        """Executa experimento focado nos melhores cenarios"""
         print("\n" + "="*60)
-        print("EXPERIMENTO SIMPLIFICADO (TESTE RAPIDO)")
+        print("EXPERIMENTO FOCADO - 5-FOLD CV")
+        print("Testando cenarios mais promissores:")
+        print("  1. VERIFICACAO: HOG e COMBINADO")
+        print("  2. IDENTIFICACAO: HOG (limitado a 5k amostras)")
         print("="*60)
         
-        feature_types = ['hog']
-        task_types = ['verification']
+        # Configuracoes otimizadas
+        verification_features = ['hog', 'combined']
+        identification_features = ['hog']  # Apenas HOG para identificacao
         
         all_results = {}
         
-        for task in task_types:
-            all_results[task] = {}
+        # 1. TESTAR VERIFICACAO
+        print("\n" + "="*50)
+        print("FASE 1: VERIFICACAO FACIAL")
+        print("="*50)
+        
+        all_results['verification'] = {}
+        
+        for feature in verification_features:
+            print(f"\n{'='*40}")
+            print(f"VERIFICACAO - {feature.upper()}")
+            print('='*40)
             
-            for feature in feature_types:
-                print(f"\n{'='*40}")
-                print(f"TAREFA: {task.upper()} | CARACTERISTICA: {feature.upper()}")
-                print('='*40)
+            try:
+                X_train, X_test, y_train, y_test = self.prepare_verification_data(
+                    feature_type=feature, max_samples=3000, pca_components=100
+                )
+                X = X_train
+                y = y_train
                 
-                data = self.prepare_verification_data(feature_type=feature, max_samples=2000, pca_components=50)
-                X = data['X_train']
-                y = data['y_train']
-                X_test = data['X_test']
-                y_test = data['y_test']
-                
+                # MLP
                 print(f"\n--- MLP ---")
-                mlp_cv = self.cross_validation_mlp(X, y, feature, task, n_folds=3, 
-                                                  hidden_layers=(50,), max_epochs=30)
+                mlp_cv = self.cross_validation_mlp(
+                    X, y, feature, 'verification', n_folds=5,
+                    hidden_layers=(100,), max_epochs=150
+                )
                 
                 best_mlp_idx = np.argmax(mlp_cv['scores'])
                 best_mlp = mlp_cv['models'][best_mlp_idx]
                 best_history = mlp_cv['histories'][best_mlp_idx]
                 
                 mlp_results = self.evaluate_model(best_mlp, X_test, y_test, feature, 
-                                                 task, 'mlp', best_history)
+                                                 'verification', 'mlp', best_history)
                 mlp_basename = self.save_model_and_results(best_mlp, mlp_results, 
-                                                          feature, task, 'mlp', best_history)
+                                                          feature, 'verification', 'mlp', best_history)
                 
+                # SVM
                 print(f"\n--- SVM ---")
-                svm_cv = self.cross_validation_svm(X, y, feature, task, n_folds=3)
+                svm_cv = self.cross_validation_svm(X, y, feature, 'verification', n_folds=5)
                 
                 best_svm_idx = np.argmax(svm_cv['scores'])
                 best_svm = svm_cv['models'][best_svm_idx]
                 
                 svm_results = self.evaluate_model(best_svm, X_test, y_test, feature, 
-                                                 task, 'svm')
+                                                 'verification', 'svm')
                 svm_basename = self.save_model_and_results(best_svm, svm_results, 
-                                                          feature, task, 'svm')
+                                                          feature, 'verification', 'svm')
                 
-                all_results[task][feature] = {
+                all_results['verification'][feature] = {
                     'mlp': {
                         'cv_mean': float(mlp_cv['mean_score']),
                         'cv_std': float(mlp_cv['std_score']),
@@ -607,75 +603,59 @@ class FaceRecognitionSystem:
                         'model_file': svm_basename
                     }
                 }
+                
+            except Exception as e:
+                print(f"Erro ao processar verificacao-{feature}: {e}")
+                continue
         
-        summary_path = os.path.join(self.results_dir, 'experiment_summary_simple.json')
-        with open(summary_path, 'w') as f:
-            json.dump(all_results, f, indent=2)
+        # 2. TESTAR IDENTIFICACAO (limitado)
+        print("\n" + "="*50)
+        print("FASE 2: IDENTIFICACAO (LIMITADO)")
+        print("="*50)
         
-        print(f"\n{'='*60}")
-        print("EXPERIMENTO SIMPLIFICADO CONCLUIDO!")
-        print(f"{'='*60}")
+        all_results['identification'] = {}
         
-        self.print_summary(all_results)
-        
-        return all_results
-    
-    def run_full_experiment(self):
-        print("\n" + "="*60)
-        print("EXPERIMENTO COMPLETO (PODE DEMORAR HORAS - OTIMIZADO)")
-        print("="*60)
-        
-        feature_types = ['hog', 'lbp', 'combined']
-        task_types = ['verification']  # Apenas verificacao para teste
-        
-        all_results = {}
-        
-        for task in task_types:
-            all_results[task] = {}
+        for feature in identification_features:
+            print(f"\n{'='*40}")
+            print(f"IDENTIFICACAO - {feature.upper()} (5k amostras)")
+            print('='*40)
             
-            for feature in feature_types:
-                print(f"\n{'='*40}")
-                print(f"TAREFA: {task.upper()} | CARACTERISTICA: {feature.upper()}")
-                print('='*40)
+            try:
+                X_train, X_val, X_test, y_train, y_val, y_test = self.prepare_identification_data(
+                    feature_type=feature, pca_components=50, max_samples=5000
+                )
+                X = np.vstack([X_train, X_val])
+                y = np.concatenate([y_train, y_val])
                 
-                if task == 'identification':
-                    data = self.prepare_identification_data(feature_type=feature, pca_components=100)
-                    X = data['X_train']
-                    y = data['y_train']
-                    X_test = data['X_test']
-                    y_test = data['y_test']
-                else:
-                    data = self.prepare_verification_data(feature_type=feature, max_samples=5000, pca_components=100)
-                    X = data['X_train']
-                    y = data['y_train']
-                    X_test = data['X_test']
-                    y_test = data['y_test']
-                
+                # MLP
                 print(f"\n--- MLP ---")
-                mlp_cv = self.cross_validation_mlp(X, y, feature, task, n_folds=3, 
-                                                  hidden_layers=(100,), max_epochs=100)
+                mlp_cv = self.cross_validation_mlp(
+                    X, y, feature, 'identification', n_folds=5,
+                    hidden_layers=(100, 50), max_epochs=200
+                )
                 
                 best_mlp_idx = np.argmax(mlp_cv['scores'])
                 best_mlp = mlp_cv['models'][best_mlp_idx]
                 best_history = mlp_cv['histories'][best_mlp_idx]
                 
                 mlp_results = self.evaluate_model(best_mlp, X_test, y_test, feature, 
-                                                 task, 'mlp', best_history)
+                                                 'identification', 'mlp', best_history)
                 mlp_basename = self.save_model_and_results(best_mlp, mlp_results, 
-                                                          feature, task, 'mlp', best_history)
+                                                          feature, 'identification', 'mlp', best_history)
                 
-                print(f"\n--- SVM ---")
-                svm_cv = self.cross_validation_svm(X, y, feature, task, n_folds=3)
+                # SVM (LinearSVC otimizado)
+                print(f"\n--- SVM (LinearSVC) ---")
+                svm_cv = self.cross_validation_svm(X, y, feature, 'identification', n_folds=5)
                 
                 best_svm_idx = np.argmax(svm_cv['scores'])
                 best_svm = svm_cv['models'][best_svm_idx]
                 
                 svm_results = self.evaluate_model(best_svm, X_test, y_test, feature, 
-                                                 task, 'svm')
+                                                 'identification', 'svm')
                 svm_basename = self.save_model_and_results(best_svm, svm_results, 
-                                                          feature, task, 'svm')
+                                                          feature, 'identification', 'svm')
                 
-                all_results[task][feature] = {
+                all_results['identification'][feature] = {
                     'mlp': {
                         'cv_mean': float(mlp_cv['mean_score']),
                         'cv_std': float(mlp_cv['std_score']),
@@ -690,13 +670,18 @@ class FaceRecognitionSystem:
                         'model_file': svm_basename
                     }
                 }
+                
+            except Exception as e:
+                print(f"Erro ao processar identificacao-{feature}: {e}")
+                continue
         
-        summary_path = os.path.join(self.results_dir, 'experiment_summary_full.json')
+        # Salvar resumo
+        summary_path = os.path.join(self.results_dir, 'experiment_summary_focused.json')
         with open(summary_path, 'w') as f:
             json.dump(all_results, f, indent=2)
         
         print(f"\n{'='*60}")
-        print("EXPERIMENTO COMPLETO CONCLUIDO!")
+        print("EXPERIMENTO FOCADO CONCLUIDO!")
         print(f"{'='*60}")
         
         self.print_summary(all_results)
@@ -704,45 +689,39 @@ class FaceRecognitionSystem:
         return all_results
     
     def print_summary(self, results):
-        print("\nRESUMO DOS RESULTADOS:")
+        print("\nRESUMO DOS RESULTADOS (5-fold CV):")
         print("="*60)
         
-        for task in results.keys():
-            print(f"\n{task.upper()}:")
-            print("-"*40)
-            
-            for feature in results[task].keys():
-                task_data = results[task][feature]
-                print(f"\n  {feature.upper()}:")
+        for task in ['identification', 'verification']:
+            if task in results:
+                print(f"\n{task.upper()}:")
+                print("-"*40)
                 
-                for model_type in ['mlp', 'svm']:
-                    model_data = task_data[model_type]
-                    print(f"    {model_type.upper()}:")
-                    print(f"      CV: {model_data['cv_mean']:.4f} (±{model_data['cv_std']:.4f})")
-                    print(f"      Teste: {model_data['test_accuracy']:.4f}")
-                    if model_type == 'mlp':
-                        print(f"      Melhor epoca: {model_data.get('best_epoch', 'N/A')}")
+                for feature in results[task]:
+                    task_data = results[task][feature]
+                    print(f"\n  {feature.upper()}:")
+                    
+                    for model_type in ['mlp', 'svm']:
+                        if model_type in task_data:
+                            model_data = task_data[model_type]
+                            print(f"    {model_type.upper()}:")
+                            print(f"      CV (5-fold): {model_data['cv_mean']:.4f} (±{model_data['cv_std']:.4f})")
+                            print(f"      Teste: {model_data['test_accuracy']:.4f}")
+                            if model_type == 'mlp' and 'best_epoch' in model_data:
+                                print(f"      Melhor epoca: {model_data['best_epoch']}")
 
 def main():
+    print("SISTEMA DE RECONHECIMENTO FACIAL - ATIVIDADE 1")
+    print("Executando experimento focado (mais rapido)")
+    
     system = FaceRecognitionSystem()
     
-    print("\nEscolha o tipo de experimento:")
-    print("1. Simplificado (teste rapido - 2,000 pares, PCA 50, 30 epocas)")
-    print("2. Completo otimizado (5,000 pares, PCA 100, 100 epocas)")
+    print("\nExecutando experimento focado...")
+    print("Isso testara cenarios mais promissores de forma eficiente.")
     
-    choice = input("\nDigite 1 ou 2: ").strip()
+    results = system.run_focused_experiment()
     
-    if choice == '1':
-        print("\nExecutando experimento simplificado...")
-        results = system.run_experiment_simple()
-    elif choice == '2':
-        print("\nExecutando experimento completo otimizado...")
-        results = system.run_full_experiment()
-    else:
-        print("Opcao invalida. Executando experimento simplificado por padrao.")
-        results = system.run_experiment_simple()
-    
-    print(f"\nTodos os resultados salvos em: {system.results_dir}")
+    print(f"\nResultados salvos em: {system.results_dir}")
 
 if __name__ == "__main__":
     main()
