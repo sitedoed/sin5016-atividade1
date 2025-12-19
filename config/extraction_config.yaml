@@ -1,0 +1,22 @@
+# config/extraction_config.yaml
+hog:
+  orientations: 9
+  pixels_per_cell: [8, 8]
+  cells_per_block: [2, 2]
+  block_norm: "L2-Hys"
+  transform_sqrt: true
+  feature_vector: true
+
+lbp:
+  num_points: 24
+  radius: 8
+  method: "uniform"
+
+general:
+  image_size: [64, 64]
+  normalize_features: true
+  save_scalers: true
+  min_images_per_person: 10  # Pelo menos 10 imagens por pessoa
+  max_persons: 1000          # Limitar a 1000 pessoas (aproximadamente 10% do CelebA)
+  image_dir: "../Images/Selected_images"
+  identity_file: "../data/raw/identity_CelebA.txt"

@@ -1,0 +1,16 @@
+ESTATISTICAS DA EXTRACAO COM LABELS CORRETAS
+============================================================
+
+total_images: 50648
+unique_persons: 1687
+hog_feature_dimension: 1764
+lbp_feature_dimension: 26
+combined_feature_dimension: 1790
+hog_features_mean: 2.827070735092829e-16
+hog_features_std: 0.9999999999999982
+lbp_features_mean: -1.027357271976136e-17
+lbp_features_std: 1.0000000000000107
+images_per_person_min: 30
+images_per_person_max: 35
+images_per_person_avg: 30.022525192649674
+images_per_person_std: 0.27453041513070825

@@ -1,0 +1,25 @@
+general:
+  identity_file: ../data/raw/identity_CelebA.txt
+  image_dir: ../Images/Selected_images
+  image_size: !!python/tuple
+  - 64
+  - 64
+  max_persons: null
+  min_images_per_person: 10
+  normalize_features: true
+  save_scalers: true
+hog:
+  block_norm: L2-Hys
+  cells_per_block: !!python/tuple
+  - 2
+  - 2
+  feature_vector: true
+  orientations: 9
+  pixels_per_cell: !!python/tuple
+  - 8
+  - 8
+  transform_sqrt: true
+lbp:
+  method: uniform
+  num_points: 24
+  radius: 8

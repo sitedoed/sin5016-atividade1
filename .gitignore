@@ -28,6 +28,15 @@ Execucao/**/*.pkl
 .vscode/
 .idea/
 
+# Dados gerados / features
+data/features/
+data/features/**/*.npy
+data/features/**/*.pkl
+
+# Resultados e logs
+results/
+
+
 # Outros
 .DS_Store
 *.log
