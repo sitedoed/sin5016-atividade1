@@ -1,38 +1,48 @@
-# Sistema de Reconhecimento Facial - CelebA
+Sistema de Reconhecimento Facial - CelebA
 
-Trabalho de SIN5016 - Classificação de Imagens com Descritores HOG e LBP
-## Descrição do Projeto
+Trabalho de SIN5016 - Aprendizado de Máquina - Atividade 1
+Descrição do Projeto
 
-Implementação de um sistema de reconhecimento facial utilizando a base de dados CelebA, empregando dois classificadores (MLP e SVM) com extração de características via descritores HOG e LBP.
+Implementação de um sistema de reconhecimento facial utilizando a base de dados CelebA, empregando dois classificadores (MLP e SVM) com extração de características via descritores HOG e LBP, conforme especificações da atividade.
+Objetivos
 
-## Objetivos
+    Implementar 2 classificadores para tarefa de reconhecimento facial (autenticação e identificação)
 
-    Implementar 2 classificadores para tarefa de reconhecimento facial
+    Extrair características usando descritor HOG (obrigatório) e LBP (opcional combinado com HOG)
 
-    Extrair características usando descritor HOG (obrigatório) e LBP (opcional)
+    Empregar validação cruzada 5-fold para avaliação
 
-    Empregar validação cruzada k-fold (k=5) para avaliação
-
-    Garantir balanceamento ≥30% das instâncias minoritárias
+    Limitar experimentos de identificação a 5.000 amostras conforme especificação
 
     Gerar modelos comparativos para análise de desempenho
 
-## Estrutura do Projeto
+Estrutura do Projeto
 text
 
 .
 ├── Codigo/                    # Código fonte implementado
-├── dados/                     # Metadados e características extraídas
-├── Execucao/                  # Modelos treinados e resultados
-├── images/                    # Dataset de imagens CelebA
-├── Relatorio/                 # Relatórios e documentação
-├── sin5016/                   # Ambiente virtual Python
-├── experiments/               # Experimentos e checkpoints
+│   ├── train_classifiers.py   # Script principal de treinamento
+│   ├── extract_features.py    # Extração de características HOG/LBP
+│   ├── preprocess_images.py   # Pré-processamento de imagens
+│   └── analyze_features.py    # Análise de características
+├── data/                      # Dados e características extraídas
+│   ├── features/              # Features HOG, LBP e COMBINADO
+│   ├── processed/             # Dados processados
+│   └── raw/                   # Metadados originais CelebA
+├── Execucao/                  # Modelos treinados e resultados (para entrega)
+│   ├── Hog/                   # Resultados com HOG
+│   └── Outro/                 # Resultados com COMBINADO (HOG+LBP)
+├── results/                   # Resultados completos dos experimentos
+│   ├── models/                # Modelos serializados
+│   ├── logs/                  # Logs de execução
+│   └── plots/                 # Gráficos e visualizações
+├── Relatorio/                 # Relatórios e resumo dos resultados
+├── Images/                    # Dataset de imagens CelebA
+├── config/                    # Configurações do projeto
 ├── requirements.txt           # Dependências do projeto
-├── setup.sh                   # Script de configuração
 └── README.md                  # Este arquivo
 
-### Base de Dados
+Base de Dados
 
 CelebFaces Attributes (CelebA)
 
@@ -42,38 +52,43 @@ CelebFaces Attributes (CelebA)
 
     40 atributos anotados por imagem
 
-    Imagens de 178×218 pixels
+    Imagens de 218×178 pixels
 
-### Tecnologias Utilizadas
+    Usamos 20% da base (≈40.000 imagens) para experimentos
 
-    Python 3.0+
+Tecnologias Utilizadas
 
-    scikit-learn: MLP, SVM, validação cruzada
+    Python 3.11+
+
+    scikit-learn: MLP, SVM, validação cruzada, PCA
 
     scikit-image: Extração de características HOG e LBP
 
-    OpenCV/PIL: Pré-processamento de imagens
+    OpenCV: Pré-processamento de imagens
 
-    imbalanced-learn: Balanceamento de dados
+    numpy/pandas: Manipulação de dados
 
-    pandas/numpy: Manipulação de dados
+    matplotlib: Visualização de resultados
 
-### Especificações Técnicas
+Especificações Técnicas
+
 Classificadores Implementados
 
     MLP (Multilayer Perceptron)
 
-        1 camada escondida
+        1 camada escondida (100 neurônios)
 
-        Algoritmo backpropagation
+        Algoritmo backpropagation com Adam
 
-        Critério de parada antecipada
+        Critério de parada antecipada (patience=20)
 
     SVM (Support Vector Machine)
 
-        Tipo C-SVC
+        Tipo C-SVC tradicional
 
-        Kernel linear/RBF
+        Kernel RBF
+
+        Parâmetros padrão (C=1.0, gamma='scale')
 
 Descritores de Características
 
@@ -85,103 +100,163 @@ Descritores de Características
 
         9 orientações
 
+        Dimensão: 1764 features por imagem
+
     LBP (Local Binary Patterns)
 
-        Padrões uniformes
+        Combinado com HOG para formação do descritor COMBINADO
 
-        8 pontos de vizinhança
-
-        Raio 1
+        Dimensão combinada: 1790 features por imagem
 
 Metodologia de Avaliação
 
-    Validação cruzada: k=5 folds
+    Validação cruzada: 5-fold estratificado
 
-    Balanceamento: ≥30% instâncias minoritárias
+    Balanceamento: Apenas classes com ≥5 amostras
 
-    Métricas: Acurácia, Precisão, Recall, F1-Score
+    Métricas: Acurácia, Precisão, Recall, AUC (para verificação)
 
-### Como Executar
+    PCA: Redução para 100 componentes (variância preservada >85%)
+
+Como Executar
 1. Configuração do Ambiente
 bash
 
-### Clonar repositório
+# Clonar repositório
 git clone <repositorio>
 cd sin5016-atividade1
 
-# Ativar ambiente virtual
+# Ativar ambiente virtual (se existente)
 source sin5016/bin/activate  # Linux/Mac
-# ou
-.\sin5016\Scripts\activate   # Windows
 
 # Instalar dependências
 pip install -r requirements.txt
 
-2. Pré-processamento
+2. Extração de Características (se necessário)
 bash
 
-# Extrair características HOG
-python Codigo/preprocessing/extrair_hog.py
+# Extrair características HOG e LBP
+python Codigo/extract_features.py
 
-# Extrair características LBP
-python Codigo/preprocessing/extrair_lbp.py
+# Verificar extração
+python Codigo/analyze_features.py
 
-3. Treinamento dos Modelos
+3. Executar Experimentos Completos
 bash
 
-# Treinar todos os modelos
-python Codigo/main.py --descritor hog --modelo mlp
-python Codigo/main.py --descritor hog --modelo svm
-python Codigo/main.py --descritor lbp --modelo mlp
-python Codigo/main.py --descritor lbp --modelo svm
+# Executar pipeline completo (verificação + identificação)
+python Codigo/train_classifiers.py
 
-4. Gerar Resultados
-bash
+4. Gerar Arquivos de Execução (para entrega)
 
-# Executar pipeline completo
-python Codigo/pipeline_completo.py
+Os arquivos de execução são gerados automaticamente em ../Execucao/ contendo:
 
-📁 Estrutura de Saída (Execucao/)
+    config.txt: Configurações dos parâmetros
+
+    error.txt: Histórico de erro por época
+
+    model.dat: Modelo serializado (placeholder)
+
+Resultados Obtidos
+Verificação (Autenticação) - 1:1 Matching
+Descritor	Modelo	Acurácia CV (5-fold)	Acurácia Teste	AUC
+HOG	MLP	65.78% ±0.47%	66.66%	66.66%
+HOG	SVM	70.64% ±1.26%	72.26%	72.26%
+HOG+LBP	MLP	66.36% ±0.93%	66.92%	66.92%
+HOG+LBP	SVM	70.83% ±1.08%	72.58%	72.58%
+
+Melhor resultado: SVM com HOG+LBP (72.58% acurácia)
+Identificação - 1:N Matching
+Nº Classes	Modelo	Acurácia Teste	Baseline	Ganho
+10	SVM	60.00%	10.00%	+500%
+20	SVM	48.96%	5.00%	+879%
+30	SVM	47.16%	3.33%	+1315%
+200	SVM	7.34%	0.50%	+1368%
+
+Observações:
+
+    SVM consistentemente superior ao MLP
+
+    Performance decai com aumento de classes
+
+    Identificação viável para grupos pequenos (≤30 pessoas)
+
+Arquivos de Entrega
 text
 
-Execucao/
-├── Hog/
-│   ├── Melhor/          # Melhor modelo com HOG
-│   │   ├── config.txt   # Configurações do modelo
-│   │   ├── error.txt    # Histórico de treinamento
-│   │   └── model.dat    # Modelo serializado
-│   └── Pior/           # Pior modelo com HOG
-└── Outro/              # LBP ou outro descritor
-    ├── Melhor/         # Melhor modelo com LBP
-    └── Pior/           # Pior modelo com LBP
+grupo_DD.zip/
+├── Codigo/
+│   ├── train_classifiers.py     # Script principal corrigido
+│   ├── extract_features.py      # Extração de características
+│   └── ... outros necessários
+├── Execucao/                    # Estrutura completa conforme especificação
+│   ├── Hog/
+│   │   ├── Melhor/
+│   │   │   ├── config.txt
+│   │   │   ├── error.txt
+│   │   │   └── model.dat
+│   │   └── Pior/
+│   └── Outro/
+│       ├── Melhor/
+│       └── Pior/
+├── results/                     # Resultados completos
+│   ├── experiment_summary_*.json
+│   ├── experiment_summary_*.txt
+│   ├── models/                  # Modelos treinados
+│   └── plots/                   # Gráficos
+├── Relatorio/                   # Resumo dos resultados
+├── README.md                    # Este arquivo
+└── requirements.txt             # Dependências
 
-📊 Resultados Esperados
-Modelo	Descritor	Acurácia (média)	Precisão	Recall	F1-Score
-MLP	HOG	-	-	-	-
-SVM	HOG	-	-	-	-
-MLP	LBP	-	-	-	-
-SVM	LBP	-	-		
+Análise Crítica
+Pontos Fortes
 
+    Sistema implementado conforme especificação
 
-👥 Equipe
+    SVM apresenta bom desempenho na verificação (~72%)
 
-    Antonio - Matrícula
+    Identificação funcional para grupos pequenos
+
+    Validação cruzada robusta (5-fold estratificado)
+
+Limitações
+
+    MLP apresenta overfitting na identificação
+
+    Features HOG têm poder discriminativo limitado para muitas classes
+
+    Performance decai rapidamente acima de 30 classes
+
+Sugestões de Melhoria
+
+    Uso de deep features (CNN pré-treinada)
+
+    Data augmentation para aumentar amostras
+
+    Tuning mais agressivo de hiperparâmetros
+
+    Ensemble de classificadores
+
+Equipe
 
     Edson de Oliveira Vieira - 16294075
 
+    Antonio
 
-📚 Referências
+Referências
 
-    Liu, Z., Luo, P., Wang, X., & Tang, X. (2015). Deep Learning Face Attributes in the Wild. Proceedings of International Conference on Computer Vision (ICCV).
+    Liu, Z., Luo, P., Wang, X., & Tang, X. (2015). Deep Learning Face Attributes in the Wild. ICCV.
 
     Dalal, N., & Triggs, B. (2005). Histograms of Oriented Gradients for Human Detection. CVPR.
 
     Ojala, T., Pietikainen, M., & Maenpaa, T. (2002). Multiresolution gray-scale and rotation invariant texture classification with local binary patterns. IEEE TPAMI.
 
-📄 Licença
+    Material da disciplina SIN5016 - Aprendizado de Máquina, USP.
 
-Este projeto é desenvolvido para fins acadêmicos na disciplina SIN5016.
+Licença
 
-Última atualização: Dezembro 2025
-Disciplina: SIN5016 - Classificação de Imagens
-Instituição: EACH/USP
+Este projeto é desenvolvido para fins acadêmicos na disciplina SIN5016 - Aprendizado de Máquina da EACH/USP.
+
+Última atualização: Dezembro 2024
+Disciplina: SIN5016 - Aprendizado de Máquina
+Instituição: Escola de Artes, Ciências e Humanidades - Universidade de São Paulo (EACH/USP)
